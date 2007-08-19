@@ -1,7 +1,7 @@
 ;;; -*- mode: lisp -*-
-(defpackage :empty-system
+(defpackage :java-cloak-compat-system
   (:use :asdf :cl))
-(in-package :empty-system)
+(in-package :java-cloak-compat-system)
 
 (defclass closure-source-file (cl-source-file) ())
 
@@ -12,17 +12,17 @@
     (let ((*compile-print* nil))
       (call-next-method))))
 
-(defsystem :empty
+(defsystem :java-cloak-compat
     :default-component-class closure-source-file
     :serial t
     :components
     ((:file "package")
-     (:file "empty"))
+     (:file "java"))
     :depends-on ())
 
-;;; (defsystem :empty-test
+;;; (defsystem :java-cloak-compat-test
 ;;;     :default-component-class closure-source-file
 ;;;     :serial t
 ;;;     :components
 ;;;     ((:file "test"))
-;;;     :depends-on (:empty :rt))
+;;;     :depends-on (:java-cloak-compat :rt))
