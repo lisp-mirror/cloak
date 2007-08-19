@@ -1,0 +1,15 @@
+#!/bin/sh -e
+NAME=$(basename $0)
+CWDREL=$(dirname $0)
+CWD=$(cd "$CWDREL" && pwd)
+
+export LD_LIBRARY_PATH="/usr/lib/classpath:$CWD/cloak/c"
+export SBCL_HOME="$CWD/sbcl/contrib"
+
+exec "$CWD/sbcl/src/runtime/sbcl" \
+	--core sbcl/output/sbcl.core \
+	--userinit /dev/null \
+	--eval '(progn (print *POSIX-ARGV*) (terpri) (quit))' \
+	--end-toplevel-options \
+        $NAME \
+	"$@"
