@@ -18,11 +18,4 @@
     :components
     ((:file "package")
      (:file "java"))
-    :depends-on ())
-
-;;; (defsystem :java-cloak-compat-test
-;;;     :default-component-class closure-source-file
-;;;     :serial t
-;;;     :components
-;;;     ((:file "test"))
-;;;     :depends-on (:java-cloak-compat :rt))
+    :depends-on (:cloak :split-sequence))

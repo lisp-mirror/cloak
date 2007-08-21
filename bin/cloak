@@ -1,0 +1,21 @@
+#!/bin/sh -e
+NAME=$(basename $0)
+CWDREL=$(dirname $0)
+CWD=$(cd "$CWDREL" && cd .. && pwd)
+
+export LD_LIBRARY_PATH="/usr/lib/classpath:$CWD/cloak/c"
+export SBCL_HOME="$CWD/sbcl/contrib"
+
+exec "$CWD/sbcl/src/runtime/sbcl" \
+	--core "$CWD/core/cloak.core" \
+	--noinform \
+	--noprint \
+	--userinit /dev/null \
+	--eval "(unless (find-package :asdf) (require :asdf))" \
+	--eval '(push "'"$CWD/systems/"'" asdf:*central-registry*)' \
+	--eval "(if (find-package :java-cloak-compat) (handler-bind ((style-warning #'muffle-warning))(load \"$CWD/cloak/lisp/jnifns.fasl\")) (asdf:operate 'asdf:load-op :java-cloak-compat))" \
+	--eval '(java-cloak-compat:main)' \
+	--eval '(quit)' \
+	--end-toplevel-options \
+        "$NAME" \
+	"$@"
