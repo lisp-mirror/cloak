@@ -1,0 +1,162 @@
+? .diff
+? .log
+? 0.9.10.27.diff
+? 0.9.11.45.diff
+? build
+? contrib/sb-heapdump
+Index: doc/manual/contrib-modules.texinfo
+===================================================================
+RCS file: /cvsroot/sbcl/sbcl/doc/manual/contrib-modules.texinfo,v
+retrieving revision 1.6
+diff -u -u -r1.6 contrib-modules.texinfo
+--- doc/manual/contrib-modules.texinfo	3 May 2007 03:27:56 -0000	1.6
++++ doc/manual/contrib-modules.texinfo	25 Aug 2007 22:28:35 -0000
+@@ -14,6 +14,7 @@
+ * sb-md5::
+ * sb-rotate-byte::
+ * sb-cover::
++* sb-heapdump::
+ @end menu
+ 
+ @page
+@@ -30,3 +31,6 @@
+ 
+ @page
+ @include sb-cover/sb-cover.texinfo
++
++@page
++@include sb-heapdump/sb-heapdump.texinfo
+Index: src/compiler/generic/primtype.lisp
+===================================================================
+RCS file: /cvsroot/sbcl/sbcl/src/compiler/generic/primtype.lisp,v
+retrieving revision 1.25
+diff -u -u -r1.25 primtype.lisp
+--- src/compiler/generic/primtype.lisp	28 Feb 2007 16:06:02 -0000	1.25
++++ src/compiler/generic/primtype.lisp	25 Aug 2007 22:28:35 -0000
+@@ -47,6 +47,9 @@
+ #!+#.(cl:if (cl:= sb!vm::n-machine-word-bits 64) '(and) '(or))
+ (!def-primitive-type signed-byte-64 (signed-reg descriptor-reg)
+   :type (signed-byte 64))
++#!+x86                                  ;for use by sb-regpair
++(!def-primitive-type signed-byte-64 (descriptor-reg)
++  :type (signed-byte 64))
+ 
+ (defvar *fixnum-primitive-type* (primitive-type-or-lose 'fixnum))
+ 
+@@ -65,6 +68,11 @@
+     (:or signed-byte-32 fixnum unsigned-byte-31 positive-fixnum))
+   (!def-primitive-type-alias untagged-num
+     (:or . #.(print (union (cdr '#1#) (cdr '#2#))))))
++#!+x86
++(!def-primitive-type-alias signed64-num
++  (:or positive-fixnum fixnum
++       unsigned-byte-31 unsigned-byte-32 signed-byte-32
++       signed-byte-64))
+ 
+ ;;; other primitive immediate types
+ (/show0 "primtype.lisp 68")
+@@ -174,7 +182,9 @@
+                           (eq t2-name
+                               (ecase sb!vm::n-machine-word-bits
+                                 (32 'unsigned-byte-32)
+-                                (64 'unsigned-byte-64))))
++                                (64 'unsigned-byte-64)))
++                          #!+x86
++                          (eq t2-name 'signed-byte-64))
+                       t2))
+                  (fixnum
+                   (case t2-name
+@@ -188,7 +198,9 @@
+                        (primitive-type-or-lose
+                         (ecase sb!vm::n-machine-word-bits
+                           (32 'signed-byte-32)
+-                          (64 'signed-byte-64))))))
++                          (64 'signed-byte-64))))
++                    #!+x86
++                    (signed-byte-64 t2)))
+                  (#.(ecase sb!vm::n-machine-word-bits
+                       (32 'signed-byte-32)
+                       (64 'signed-byte-64))
+@@ -235,7 +247,10 @@
+                                                          ,(1- (ash 1 31))))
+                                        (64
+                                         `(signed-byte-64 ,(ash -1 63)
+-                                                         ,(1- (ash 1 63))))))
++                                                         ,(1- (ash 1 63)))))
++                                    #!+x86
++                                    (signed-byte-64 ,(ash -1 63)
++                                                    ,(1- (ash 1 63))))
+                                  (if (or (< hi sb!xc:most-negative-fixnum)
+                                          (> lo sb!xc:most-positive-fixnum))
+                                      (part-of bignum)
+Index: src/compiler/x86/move.lisp
+===================================================================
+RCS file: /cvsroot/sbcl/sbcl/src/compiler/x86/move.lisp,v
+retrieving revision 1.15
+diff -u -u -r1.15 move.lisp
+--- src/compiler/x86/move.lisp	12 Apr 2007 14:55:07 -0000	1.15
++++ src/compiler/x86/move.lisp	25 Aug 2007 22:28:36 -0000
+@@ -260,6 +260,10 @@
+        ;;   inst jmp :nz bignum
+        ;;   inst shl y 2
+        ;;   emit-label done
++       ;;
++       ;; (However, note that negative numbers need to be accounted for, and
++       ;; the "twisty" code does that by testing OF (not CF), which compares
++       ;; the most significant bits. --DFL)
+ 
+        (assemble (*elsewhere*)
+           (emit-label bignum)
+Index: src/compiler/x86/parms.lisp
+===================================================================
+RCS file: /cvsroot/sbcl/sbcl/src/compiler/x86/parms.lisp,v
+retrieving revision 1.69
+diff -u -u -r1.69 parms.lisp
+--- src/compiler/x86/parms.lisp	5 Jun 2007 11:42:54 -0000	1.69
++++ src/compiler/x86/parms.lisp	25 Aug 2007 22:28:36 -0000
+@@ -176,8 +176,8 @@
+   (def!constant static-space-start        #x01100000)
+   (def!constant static-space-end          #x011ff000)
+ 
+-  (def!constant dynamic-space-start       #x09000000)
+-  (def!constant dynamic-space-end         #x29000000)
++  (def!constant dynamic-space-start       #x5a000000)
++  (def!constant dynamic-space-end         #xb0000000)
+ 
+   (def!constant linkage-table-space-start #x01200000)
+   (def!constant linkage-table-space-end   #x012ff000))
+Index: src/compiler/x86/vm.lisp
+===================================================================
+RCS file: /cvsroot/sbcl/sbcl/src/compiler/x86/vm.lisp,v
+retrieving revision 1.28
+diff -u -u -r1.28 vm.lisp
+--- src/compiler/x86/vm.lisp	12 Apr 2007 14:55:07 -0000	1.28
++++ src/compiler/x86/vm.lisp	25 Aug 2007 22:28:36 -0000
+@@ -48,6 +48,8 @@
+   ;; Note: the encoding here is different than that used by the chip.
+   ;; We use this encoding so that the compiler thinks that AX (and
+   ;; EAX) overlap AL and AH instead of AL and CL.
++  ;;
++  ;; (Keep this is sync with REG-TN-ENCODING and x86-lispregs.h.)
+   (defreg al 0 :byte)
+   (defreg ah 1 :byte)
+   (defreg cl 2 :byte)
+@@ -453,7 +455,7 @@
+   (let* ((sc (tn-sc tn))
+          (sb (sb-name (sc-sb sc)))
+          (offset (tn-offset tn)))
+-    (ecase sb
++    (case sb
+       (registers
+        (let* ((sc-name (sc-name sc))
+               (name-vec (cond ((member sc-name *byte-sc-names*)
+@@ -471,7 +473,8 @@
+       (stack (format nil "S~D" offset))
+       (constant (format nil "Const~D" offset))
+       (immediate-constant "Immed")
+-      (noise (symbol-name (sc-name sc))))))
++      (noise (symbol-name (sc-name sc)))
++      (t (format nil "<unknown: off=~W, sc=~A>" offset (sc-name sc))))))
+ ;;; FIXME: Could this, and everything that uses it, be made #!+SB-SHOW?
+ 
+ (!def-vm-support-routine combination-implementation-style (node)

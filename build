@@ -1,0 +1,347 @@
+#!/bin/bash -e
+# Build script for cloak.
+# Originally based on clbuild by Luke Gorrie and others.
+
+cd $(dirname $0)
+cwd="$(pwd)"
+system_dir="$(pwd)/systems"
+source_dir="$(pwd)/source"
+target_dir="$(pwd)/target"
+self="$0"
+while test -h "$self"; do self=`readlink "$self"`; done
+
+export LD_LIBRARY_PATH="/usr/lib/classpath:cloak/c"
+system_namestring="$system_dir/"
+source_namestring="$source_dir/"
+target_namestring="$target_dir/"
+lisp=sbcl
+
+[ -d $system_dir ] || mkdir $system_dir
+[ -d $source_dir ] || mkdir $source_dir
+[ -d $target_dir ] || mkdir $target_dir
+
+if [ "$CLNET_USER" == "" ]; then
+    CLNET_USER=:pserver:anonymous:anonymous
+fi
+
+blank_line="                                                                  "
+tail_last() {
+    if tty 0>&1 >/dev/null; then
+	while read line; do
+	    echo -e '\r\c'
+	    echo -n "$blank_line"
+	    echo -e '\r\c'
+	    echo -n $line | cut -b 1-65 | tr -d '\n'
+	done
+	echo -e '\r\c'
+	echo -n "$blank_line"
+	echo -e '\r\c'
+    else
+	while read line; do
+	    echo $line
+	done
+    fi
+}
+
+clbuild_lisp() {
+    $lisp \
+	--eval "(require :asdf)" \
+	--eval "(setq asdf:*central-registry* '(#p\"${system_namestring}\"))" \
+	"$@"
+}
+
+dribble_get() {
+    label="$1"
+    name="$2"
+
+    if test -d `echo ${name}*/ | awk '{print $1;}'`; then
+	echo -n "UPDATE "
+    else
+	echo -n "NEW "
+    fi
+    echo "$label $name"
+}
+
+get_darcs() {
+    name="$1"
+    url="$2"
+
+    # don't use tail_last, since darcs already has this kind of progress bar
+    if [ -d $name ]; then
+	dribble_get "darcs pull" $name
+	(cd $name; darcs pull --all)
+    else
+	dribble_get "darcs get" $name
+	darcs get $url $name
+    fi
+    ln -f -s $(pwd)/$name/*.asd ${system_dir}
+}
+
+get_svn() {
+    name="$1"
+    url="$2"
+
+    dribble_get "svn co" $name
+
+    svn co $url $name | tail_last
+    ln -f -s $(pwd)/$name/*.asd ${system_dir}/
+}
+
+get_cvs() {
+    module="$1"
+    repository="$2"
+
+    dribble_get "cvs co" $module
+
+    cvs -d $repository co $module | tail_last
+    ln -f -s $(pwd)/$module/*.asd ${system_dir}/ || true
+}
+
+# zzz I don't like the way the existing directory is removed completely.
+get_tarball() {
+    name="$1"
+    url="$2"
+    flags="${3:-z}"
+
+    tmp=$TMPDIR/${name}.tar.gz
+
+    dribble_get wget $name
+
+    [ -d ${name}*/ ] && rm -rf ${name}*/
+    wget \
+	--no-check-certificate \
+	--progress=dot \
+	-O "$tmp" \
+	$url \
+	2>&1 | tail_last
+    tar v${flags}xf "$tmp" | tail_last
+    rm "$tmp"
+    ln -f -s $(pwd)/${name}*/*.asd ${system_dir}/
+}
+
+get_svn_clnet() {
+    name="$1"
+    path="$2"
+
+    get_svn $name svn://common-lisp.net/project/$name/svn/$2
+}
+
+get_cvs_clnet() {
+    module="$1"
+    project="${2:-$1}"
+
+    get_cvs $module ${CLNET_USER}@common-lisp.net:/project/$project/cvsroot
+}
+
+get_ediware() {
+    name="$1"
+
+    get_tarball $name http://weitz.de/files/${name}.tar.gz
+}
+
+get_tarball_bz2() {
+    get_tarball "$1" "$2" j
+}
+
+count_systems() {
+	n_asd=`ls -1 $system_dir/*.asd | wc -l`
+	echo "$n_asd systems definition files registered"
+}
+
+update() {
+	rm -f core/cloak.core
+
+        TMPDIR=`mktemp -d /tmp/clbuild.XXXXXXXXXX`
+
+        cleanup() {
+            rm -rf $TMPDIR
+        }
+        trap cleanup exit
+
+	cd $source_dir
+	get_cvs_clnet trivial-gray-streams cl-plus-ssl
+	get_cvs_clnet zip
+	get_ediware flexi-streams
+	get_tarball salza http://www.xach.com/lisp/salza/salza-0.7.2.tar.gz
+	get_tarball split-sequence \
+	    http://ftp.linux.org.uk/pub/lisp/cclan/split-sequence.tar.gz
+
+	cvs -z3 -d :pserver:anonymous@cvs.savannah.gnu.org:/sources/classpath co -r classpath-0_91-release classpath
+
+	cvs -z3 -d :pserver:anonymous:@sbcl.cvs.sourceforge.net:/cvsroot/sbcl co sbcl
+	echo '(lambda (list) (pushnew :sb-thread list) list)' > sbcl/customize-target-features.lisp
+
+	echo Dropping sb-heapdump into the SBCL tree
+	cd $source_dir/sbcl/contrib
+	svn co svn://common-lisp.net/project/steeldump/svn/trunk/sb-heapdump
+
+	echo Patching SBCL: sb-regpair
+	cd $source_dir/sbcl
+	patch -p0 <$cwd/sb-regpair/sb-regpair.diff
+
+	ln -sf $cwd/sb-regpair/sb-regpair.asd $system_dir
+	ln -sf $cwd/cloak/cloak.asd $system_dir
+	ln -sf $cwd/java-cloak-compat/java-cloak-compat.asd $system_dir
+
+	echo "update complete"
+}
+
+help() {
+	cat <<EOF
+Usage:
+  check          check availability of necessary helper applications
+  update         download/update SBCL, cloak and helper libraries
+  world          perform all build steps
+
+  build-sbcl       build SBCL
+  build-classpath  build GNU Classpath
+  build-cloak      build cloak.core
+  build-cache      build cached heap files for Classpath and ECJ
+
+  clean          delete all compiled object files
+
+  slime          run the Superior Lisp Interaction Mode in a fresh Emacs
+  lisp           run SBCL in the terminal
+EOF
+}
+
+check_program() {
+    if ! "$1" --help >/dev/null; then
+	echo Error: Cannot find a working installation of "$1"
+	exit 1
+    fi
+    echo "found `which $1`"
+}
+
+# for programs that don't understand --help, or (like cvs) are stupid enough
+# to return a failure code when invoked using a correct --help option... 
+check_misdesigned_program() {
+    if ! which "$1" >/dev/null; then
+	echo Error: Cannot find a working installation of "$1"
+	exit 1
+    fi
+    echo "found `which $1`"
+}
+
+check() {
+    echo "Checking for helper applications..."
+    check_misdesigned_program cvs
+    check_program svn
+    check_program darcs
+    check_program wget
+    check_program tar
+    check_program git
+    check_misdesigned_program mktemp
+    echo "All helper applications found."
+}
+
+build_sbcl() {
+    f=.build-sbcl.timestamp
+    if test -f $f; then
+	echo "$f found, skipping build-sbcl"
+	echo "(delete this file to force rebuilding)"
+    else
+	cd ${source_dir}/sbcl
+	./make.sh
+    fi
+}
+
+build_classpath() {
+    f=.build-classpath.timestamp
+    if test -f $f; then
+	echo "$f found, skipping build-sbcl"
+	echo "(delete this file to force rebuilding)"
+    else
+	cd ${source_dir}/classpath
+	./configure
+	make
+    fi
+}
+
+build_cloak() {
+    f=.build-cloak.timestamp
+    if test -f $f; then
+	echo "$f found, skipping build-sbcl"
+	echo "(delete this file to force rebuilding)"
+    else
+	mkdir -p core
+	rm -f core/cloak.core
+	exec "sbcl/src/runtime/sbcl" \
+	    --core "sbcl/output/sbcl.core" \
+	    --noinform \
+	    --noprint \
+	    --userinit /dev/null \
+	    --eval "(require :asdf)" \
+	    --eval '(push "systems/" asdf:*central-registry*)' \
+	    --eval "(asdf:operate 'asdf:load-op :java-cloak-compat)" \
+	    --eval '(sb-ext:save-lisp-and-die "core/cloak.core")'
+    fi
+}
+
+build_cache() {
+    f=.build-cache.timestamp
+    if test -f $f; then
+	echo "$f found, skipping build-sbcl"
+	echo "(delete this file to force rebuilding)"
+    else
+	./bin/precompile \
+	    cloak/classpath.zip \
+	    /home/david/cp-tools.jar \
+	    /home/david/ecj.jar
+    fi
+}
+
+case $1 in
+    check)
+	check
+	;;
+    world)
+	"$0" build-classpath
+	"$0" build-sbcl
+	"$0" build-cloak
+	"$0" build-cache
+	;;
+    clean)
+	rm -f core/cloak.core
+	cd $source_dir
+	find . -name "*.fasl" -exec rm {} \;
+	;;
+    update)
+	update
+	;;
+    build-sbcl)
+	build_sbcl
+	;;
+    build-classpath)
+	build_classpath
+	;;
+    build-cloak)
+	build_cloak
+	;;
+    build-cache)
+	build_cache
+	;;
+    lisp)
+	shift;
+        clbuild_lisp "$@"
+        ;;
+    slime)
+	shift
+	emacs_args="$@"
+	emacs=${EMACS-emacs}
+	$emacs \
+	    -eval "(setq load-path (cons \"${source_namestring}slime\" load-path))" \
+	    -eval "(setq inhibit-splash-screen t)" \
+	    -eval "(load \"${source_namestring}slime/slime\")" \
+	    -eval "(setq inferior-lisp-program \"$self lisp\")" \
+	    -eval "(slime-setup)" \
+	    -eval '(slime)' \
+	    ${emacs_args}
+	;;
+    help|--help|-h|-H)
+        help
+	;;
+    *)
+        help
+	exit 1
+esac

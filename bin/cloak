@@ -13,7 +13,7 @@ exec "$CWD/sbcl/src/runtime/sbcl" \
 	--userinit /dev/null \
 	--eval "(unless (find-package :asdf) (require :asdf))" \
 	--eval '(push "'"$CWD/systems/"'" asdf:*central-registry*)' \
-	--eval "(if (find-package :java-cloak-compat) (handler-bind ((style-warning #'muffle-warning))(load \"$CWD/cloak/lisp/jnifns.fasl\")) (asdf:operate 'asdf:load-op :java-cloak-compat))" \
+	--eval "(if (find-package :java-cloak-compat) (handler-bind ((style-warning #'muffle-warning)) (load \"$CWD/cloak/lisp/jnifns.fasl\")) (asdf:operate 'asdf:load-op :java-cloak-compat))" \
 	--eval '(java-cloak-compat:main)' \
 	--eval '(quit)' \
 	--end-toplevel-options \

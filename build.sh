@@ -13,6 +13,6 @@ exec "$CWD/sbcl/src/runtime/sbcl" \
 	--noprint \
 	--userinit /dev/null \
 	--eval "(require :asdf)" \
-	--eval '(push "'"$CWD/systems/"'" asdf:*central-registry*)' \
+	--eval "(push \"$CWD/systems/\" asdf:*central-registry*)" \
 	--eval "(asdf:operate 'asdf:load-op :java-cloak-compat)" \
-	--eval '(sb-ext:save-lisp-and-die "core/cloak.core")'
+	--eval "(sb-ext:save-lisp-and-die \"$CWD/core/cloak.core\")"

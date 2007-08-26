@@ -1,0 +1,22 @@
+Things to improve:
+
+* The truncation VOP is terribly long and should perhaps be moved into
+  an assembly routine.
+* Same goes for move-from-signed64 and move-to-signed64/integer, except
+  that those have an more fundamental problem: they are being used too often.
+  The compiler prefers descriptor representation, e.g. for constants,
+  and will move 64 bit data into a descriptor-reg and back for no good
+  reason.  In those cases, costs would be much smaller for a move of the
+  constant into a signed64-reg and computations with that.  (This
+  problem also occurs for ordinary 32 bit arithmetic, except that the
+  64 bit <-> descriptor moves are even more expensive.)
+* Some VOPs could be optimized a little more:
+* -c versions to deal with constants would be nice. Not sure how much that
+  would do to alleviate the problem with constants described above.
+* Also, some VOPs have been hacked to use only a minimal number of
+  signed64-regs to avoid problems when most registers are wired away.  These
+  workarounds date back to the older version of the contrib where only
+  `adjacent' registers could be paired.  It might be worth trying to
+  revert them.  (Any place where arguments are moved to the stack should
+  be treated with suspicion.)
+* specified VOP costs are cargo cult at best

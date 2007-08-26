@@ -41,6 +41,7 @@
       ((equal name "javap") (javap args))
       ((equal name "javah") (javah args))
       ((equal name "serialver") (serialver args))
+      ((equal name "precompile") (precompile args))
       (t
        (give-up "undefined command: ~A" name)))))
 
@@ -172,3 +173,34 @@ Copyright (C) 2003-2007 David Lichteblau~%")
 		   :show-statistics-p nil
 		   :classpath (list "/home/david/cp-tools.jar")
 		   :arguments args))
+
+(defun class-file-p (p)
+  (block nil
+    (with-open-file (s p :element-type '(unsigned-byte 8))
+      (flet ((check (byte)
+	       (unless (eql (read-byte s nil) byte)
+		 (return nil))))
+	(check #xca)
+	(check #xfe)
+	(check #xba)
+	(check #xbe)))
+    t))
+
+(defun zip-file-p (p)
+  (with-open-file (s p :element-type '(unsigned-byte 8))
+    (ignore-errors (zip::seek-to-end-header s))))
+
+(defun precompile (args)
+  (dolist (namestring args)
+    (unless (probe-file namestring)
+      (give-up "file not found: ~A" namestring))
+    (cond
+      ((class-file-p namestring)
+       (write-line namestring)
+       (unless (cloak::precompile-class-file namestring nil)
+	 (format t "~A already cached, skipping~%" namestring)))
+      ((zip-file-p namestring)
+       (write-line namestring)
+       (cloak::precompile-zip-file namestring))
+      (t
+       (give-up "not a Java class or ZIP file: ~A" namestring)))))
