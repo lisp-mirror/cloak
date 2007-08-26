@@ -1,0 +1,22 @@
+Use Mauve to test cloak.
+
+Getting:
+  $ cvs -d :pserver:anoncvs@sources.redhat.com:/cvs/mauve login
+    (Password "anoncvs".)
+  $ cvs -d :pserver:anoncvs@sources.redhat.com:/cvs/mauve co mauve
+
+Compiling:
+  mauve$ ./configure JAVAC=<please-choose>
+    (I'm using jikes, which needs JIKESPATH=/path/to/cloak/classpath)
+  mauve$ make classes.stamp
+  mauve$ mv classes all-classes
+
+Follow these instructions instead of running Mauve's choose script:
+
+Selecting classes:
+  mauve$ /path/to/cloak/mauve-select [REGEXP]
+
+Runnning the tests:
+  * (in-package :cloak)
+  * (setf *mauve-directory* "/path/to/mauve/") ;don't forget the trailing slash
+  * (mauve t)

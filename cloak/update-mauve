@@ -1,0 +1,11 @@
+#!/bin/sh -e
+set -x
+# richtiges verzeichnis?
+test -f choose-classes
+ln -sf `dirname $0`/mauve-cloak .
+cp /dev/null choices
+cp /dev/null classes
+./choose . cloak
+sort classes >classes.tmp
+mv classes.tmp classes
+sed -e 's/\./\//g' -e 's/$/.java/' <classes | xargs jikes +Z0

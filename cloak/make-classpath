@@ -1,0 +1,28 @@
+#!/bin/sh -e
+# derived from Classpath's lib/gen-classlist.sh.in and lib/Makefile.am
+test -f gen-classlist.sh.in  # are we in the right directory?
+
+base="`dirname $0`"
+
+cloak="$base/gnu $base/java $base/cloak"
+main="../java ../javax ../gnu ../org"
+extra="../vm/reference ../external/sax ../external/w3c_dom"
+
+../scripts/generate-locale-list.sh >../java/util/LocaleData.java
+find $cloak $main $extra -follow -name \*.java -print0 >classes.1
+
+cat standard.omit \
+	| while read filexp; do
+		grep -z -v "$filexp" <classes.1 >classes.2 || :
+		mv classes.2 classes.1
+	done
+
+xargs -0 jikes \
+	+Z0 \
+        +F \
+        -bootclasspath '' \
+        -extdirs '' \
+        -sourcepath '' \
+        -classpath "`echo $cloak $extra | sed -e s/\ /:/g`:.." \
+        -d . \
+	<classes.1

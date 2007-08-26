@@ -1,0 +1,85 @@
+; starting ("Test")
+Hello Lisp-World!
+; 0.262s cpu time, 0.261s real time
+; Read 0 classes from disk (1182 in cache now), compiled 0 methods.
+; Loaded 208 classes, initialized 132.
+; starting ("Test")
+Hello Lisp-World!
+; 0.260s cpu time, 0.260s real time
+; Read 0 classes from disk (1182 in cache now), compiled 0 methods.
+; Loaded 208 classes, initialized 132.
+; starting ("microbench.Main")
+microbench.object.getfield_int              7.83 ns,    0 bytes
+microbench.object.putfield_int              7.82 ns,    0 bytes
+microbench.object.getfield_long            26.55 ns,    0 bytes
+microbench.object.putfield_long            18.06 ns,    0 bytes
+microbench.invoke.NoCall                   11.44 ns,    0 bytes
+microbench.invoke.Local                    25.28 ns,    0 bytes
+microbench.invoke.Same                     32.52 ns,    0 bytes
+microbench.invoke.Subclass                 31.36 ns,    0 bytes
+microbench.invoke.Normal                   31.34 ns,    0 bytes
+microbench.invoke.Interface                39.12 ns,    0 bytes
+microbench.intArithmetic.i2b                5.28 ns,    0 bytes
+microbench.intArithmetic.i2c                2.40 ns,    0 bytes
+microbench.intArithmetic.i2d                3.60 ns,    0 bytes
+microbench.intArithmetic.i2f                3.61 ns,    0 bytes
+microbench.intArithmetic.i2l                4.87 ns,    0 bytes
+microbench.intArithmetic.i2s                4.66 ns,    0 bytes
+microbench.intArithmetic.iadd               1.80 ns,    0 bytes
+microbench.intArithmetic.iaload             4.22 ns,    0 bytes
+microbench.intArithmetic.iand               2.10 ns,    0 bytes
+microbench.intArithmetic.iastore            3.91 ns,    0 bytes
+microbench.intArithmetic.idiv              38.55 ns,    0 bytes
+microbench.intArithmetic.if_icmpeq          4.82 ns,    0 bytes
+microbench.intArithmetic.if_icmpne          4.81 ns,    0 bytes
+microbench.intArithmetic.if_icmplt          3.62 ns,    0 bytes
+microbench.intArithmetic.if_icmple          3.91 ns,    0 bytes
+microbench.intArithmetic.if_icmpgt          3.39 ns,    0 bytes
+microbench.intArithmetic.if_icmpge          3.33 ns,    0 bytes
+microbench.intArithmetic.ifeq               3.61 ns,    0 bytes
+microbench.intArithmetic.ifne              14.40 ns,    0 bytes
+microbench.intArithmetic.iflt               1.80 ns,    0 bytes
+microbench.intArithmetic.ifle               4.20 ns,    0 bytes
+microbench.intArithmetic.ifgt               4.20 ns,    0 bytes
+microbench.intArithmetic.ifge               1.80 ns,    0 bytes
+microbench.intArithmetic.iinc               1.20 ns,    0 bytes
+microbench.intArithmetic.imul               3.61 ns,    0 bytes
+microbench.intArithmetic.ineg               1.80 ns,    0 bytes
+microbench.intArithmetic.ior                2.10 ns,    0 bytes
+microbench.intArithmetic.irem              38.55 ns,    0 bytes
+microbench.intArithmetic.ishl               5.73 ns,    0 bytes
+microbench.intArithmetic.ishr               6.02 ns,    0 bytes
+microbench.intArithmetic.isub               2.06 ns,    0 bytes
+microbench.intArithmetic.iushr              6.32 ns,    0 bytes
+microbench.intArithmetic.ixor               2.10 ns,    0 bytes
+microbench.longArithmetic.l2d              18.94 ns,    0 bytes
+microbench.longArithmetic.l2f              18.71 ns,    0 bytes
+microbench.longArithmetic.l2i              13.36 ns,    0 bytes
+microbench.longArithmetic.ladd              9.02 ns,    0 bytes
+microbench.longArithmetic.laload            8.72 ns,    0 bytes
+microbench.longArithmetic.land              3.00 ns,    0 bytes
+microbench.longArithmetic.lastore         104.58 ns,   15 bytes
+microbench.longArithmetic.lcmp1            13.85 ns,    0 bytes
+microbench.longArithmetic.lcmp2            12.64 ns,    0 bytes
+microbench.longArithmetic.lcmp3            16.69 ns,    0 bytes
+microbench.longArithmetic.ldiv             59.66 ns,    0 bytes
+microbench.longArithmetic.lmul             15.03 ns,    0 bytes
+microbench.longArithmetic.lneg             10.26 ns,    0 bytes
+microbench.longArithmetic.lor               3.00 ns,    0 bytes
+microbench.longArithmetic.lrem             12.03 ns,    0 bytes
+microbench.longArithmetic.lshl              6.62 ns,    0 bytes
+microbench.longArithmetic.lshr              6.01 ns,    0 bytes
+microbench.longArithmetic.lsub              4.35 ns,    0 bytes
+microbench.longArithmetic.lushr             7.82 ns,    0 bytes
+microbench.longArithmetic.lxor              3.01 ns,    0 bytes
+microbench.exceptions.ThrowCatch         37900.0 ns, 2600 bytes
+microbench.exceptions.Unlocked             27.10 ns,    0 bytes
+microbench.exceptions.SynchronizedMethod   73.55 ns,    0 bytes
+microbench.exceptions.SynchronizedStmt     69.56 ns,    0 bytes
+microbench.exceptions.TryFinally           51.82 ns,    0 bytes
+microbench.exceptions.TryCatch             51.18 ns,    0 bytes
+microbench.misc.Sieve                   243500.0 ns,    0 bytes
+Sieve score estimate: 4106
+; 72.629s cpu time, 72.638s real time
+; Read 0 classes from disk (1182 in cache now), compiled 0 methods.
+; Loaded 294 classes, initialized 219.

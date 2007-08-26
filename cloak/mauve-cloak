@@ -1,0 +1,33 @@
+### die guten ins toepfchen
+
+JDK1.0 JDK1.1 JDK1.2 JDK1.3 JDK1.4 JLS1.0 JLS1.2 JDBC1.0 JDBC2.0 JAVA2
+
+
+### die schlechten ins kroepfchen
+
+# "BadValue" mit Xvfb
+!java.awt.Robot.mouseWheel
+
+# Der hier versucht das "open files" ulimit auszuloesen?  Tolle Sache.
+!java.nio.channels.FileChannel.manyopen
+
+# OutOfMemoryError haben wir noch nicht
+!java.lang.Object.oom
+
+# compiliert nicht
+!javax.swing.plaf.metal.MetalIconFactory.getTreeFolderIcon
+
+# classformaterror
+!org.omg.PortableServer.POA.testForwarding
+!org.omg.PortableServer.POAOperations.poa_POA_test
+
+
+### passing tests that are a nuisance to run
+
+# funktioniert zwar, packt aber zufaellige strings in die testnamen,
+# so dass ein `diff' zweier engebnisgleicher mauve-durchlaeufe voll dieses
+# zeichenmuells ist.
+!javax.swing.text.html.parser.ParserDelegator.randomTables
+
+# das will man nicht:
+!java.lang.Character.unicode

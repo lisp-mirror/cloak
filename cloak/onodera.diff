@@ -1,0 +1,139 @@
+Index: VMObject.lisp
+===================================================================
+--- VMObject.lisp	(revision 46)
++++ VMObject.lisp	(working copy)
+@@ -17,7 +17,7 @@
+ 	   (optimize (speed 3) (safety 0)))
+   (let ((result (fast-copy-structure c)))
+     (setf (co.monitor result) 0)
+-    (setf (co.hash-code result) (generate-hash-code))
++    (setf (co.%raw-hash-code result) (generate-hash-code))
+     result))
+ 
+ (defnative |java/lang/VMObject.clone(Ljava/lang/Cloneable;)| (c)
+Index: VMThread.lisp
+===================================================================
+--- VMThread.lisp	(revision 46)
++++ VMThread.lisp	(working copy)
+@@ -105,35 +105,52 @@
+ 		(setf (co.monitor object)
+ 		      (make-upgraded-monitor (+ 2 (ash thing -16))))))
+ 	  (t
+-	    ;; oops, a flat lock and we don't own it.  spinlock. :-(
+-	    (loop
+-	      (yield)
+-	      (if (zerop (dlisp::%cmpxchg object 2 0 id))
+-		  (let ((thing (co.monitor object)))
+-		    (when (not (typep thing 'fixnum))
+-		      (enter-monitor thing)
+-		      (return)))
+-		  (let ((fat (make-monitor)))
+-		    (enter-monitor fat)
+-		    (setf (co.monitor object) fat)
+-		    (return))))))))))
++	    ;; oops, a flat lock and we don't own it
++	    (let ((mutex (vm.contention-mutex *vm*))
++		  (queue (vm.contention-waitqueue *vm*)))
++	      (sb-thread:get-mutex mutex)
++	      (loop
++		(setf (co.%raw-hash-code object)
++		      (logior 1 (co.%raw-hash-code object)))
++		(cond
++		  ((zerop (dlisp::%cmpxchg object 2 0 id))
++		    (setf (co.%raw-hash-code object)
++			  (logandc1 1 (co.%raw-hash-code object)))
++		    (setf (co.monitor object) (make-upgraded-monitor 1))
++		    (sb-thread:release-mutex mutex)
++		    (return))
++		  ((not (typep thing 'fixnum))
++		    (sb-thread:release-mutex mutex)
++		    (enter-monitor thing)
++		    (return)))
++		(sb-thread:condition-wait queue mutex)))))))))
+ 
+ (declaim (inline exit-object-monitor))
+ (defun exit-object-monitor (object)
+   (declare (optimize (speed 3) (safety 0)))
+   (let ((id *thread-id*)
+ 	(thing (co.monitor object)))
+-    (cond
+-      ((eq thing id)			;nonportable but inline
+-	(setf (co.monitor object) 0)
+-	t)
+-      ((not (typep thing 'fixnum))
+-	(exit-monitor thing))
+-      ((eql (logand thing #xffff) id)
+-	(setf (co.monitor object) (- thing #x10000))
+-	t)
+-      (t
+-	nil))))
++    (when
++	(cond
++	  ((eq thing id)		;nonportable but inline
++	    (setf (co.monitor object) 0)
++	    t)
++	  ((not (typep thing 'fixnum))
++	    (exit-monitor thing))
++	  ((eql (logand thing #xffff) id)
++	    (setf (co.monitor object) (- thing #x10000))
++	    t)
++	  (t
++	    nil))
++      (unless (zerop (logand 1 (co.%raw-hash-code object)))
++	(let ((mutex (vm.contention-mutex *vm*))
++	      (queue (vm.contention-waitqueue *vm*)))
++	  (sb-thread:get-mutex mutex)
++	  (setf (co.%raw-hash-code object)
++		(logandc1 1 (co.%raw-hash-code object)))
++	  (sb-thread:condition-broadcast queue mutex)
++	  (sb-thread:release-mutex mutex)))
++      t)))
+ 
+ (defun holds-object-monitor-p (vmthread object)
+   (let ((thing (co.monitor object)))
+Index: compiler.lisp
+===================================================================
+--- compiler.lisp	(revision 46)
++++ compiler.lisp	(working copy)
+@@ -147,7 +147,7 @@
+ (defvar *hash-code* 0)
+ 
+ (dlisp::defsubst generate-hash-code ()
+-  (setf *hash-code* (int-+ *hash-code* 1)))
++  (setf *hash-code* (int-+ *hash-code* 2)))
+ 
+ (defun do-make-cloak-object (class)
+   (declare (optimize (speed 3) (safety 0)))
+Index: loader.lisp
+===================================================================
+--- loader.lisp	(revision 46)
++++ loader.lisp	(working copy)
+@@ -210,6 +210,8 @@
+ (defstruct (virtual-machine (:conc-name "VM."))
+   (bootstrap-loader (make-class-loader))
+   (global-monitor (make-monitor))
++  (contention-mutex (sb-thread:make-mutex))
++  (contention-waitqueue (sb-thread:make-waitqueue))
+   (all-threads '())
+   (all-thread-ids '())
+   (startup-time-internal (get-internal-real-time))
+@@ -550,13 +552,17 @@
+ (defstruct (cloak-object
+ 	    (:conc-name "CO.")
+ 	    (:constructor nil))
+-  (hash-code (error "oops?"))
++  (%raw-hash-code (error "oops?"))
+   (monitor (error "oops?")))
+ 
++(declaim (inline co.hash-code))
++(defun co.hash-code (object)
++  (ash (co.%raw-hash-code object) -1))
++
+ (defstruct (cloak-array
+ 	    (:include cloak-object)
+ 	    (:conc-name "CO.")
+-	    (:constructor %make-cloak-array (hash-code monitor data)))
++	    (:constructor %make-cloak-array (%raw-hash-code monitor data)))
+   (data (error "oops")))
+ 
+ (defun make-special-layout (super class n-tagged-slots n-untagged-slots)

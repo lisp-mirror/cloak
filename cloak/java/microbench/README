@@ -1,0 +1,10 @@
+This directory contains a number of cloak-specific microbenchmarks I
+find useful.
+
+An attempt is made at having at least one benchmark for every bytecode
+instruction, in order to precisely track performance regressions.  This
+is particularly important because we depend on the Lisp compiler to
+optimize our code in the way we expect it to.
+
+The invoke_* benchmarks were initially derived from the methinvbench
+package found at http://waitaki.otago.ac.nz/~bryce/gcj/.
