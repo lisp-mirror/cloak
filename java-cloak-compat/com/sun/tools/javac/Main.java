@@ -39,82 +39,9 @@ package com.sun.tools.javac;
 
 import java.io.*;
 import java.net.*;
-import java.lang.reflect.*;
 
 public class Main
 {
-  static Constructor ecjConstructor = null;
-  static Method ecjMethod = null;
-
-  static
-  {
-    String classname = "org.eclipse.jdt.internal.compiler.batch.Main";
-    Class klass = null;
-    try
-      {
-        klass = Class.forName (classname);
-      }
-    catch (ClassNotFoundException e)
-      {
-        File jar = new File (Config.JAR_INST_DIR + "/ecj.jar");
-        if (!jar.exists () || !jar.canRead ())
-	  jar = new File (Config.JAR_INST_DIR + "/eclipse-ecj.jar");
-	if (!jar.exists () || !jar.canRead ())
-          {
-            System.err.println ("java-gcj-compat: tools.jar: failed to read "
-                                + Config.JAR_INST_DIR + "/ecj.jar");
-          }
-
-        ClassLoader loader = null;
-        try
-          {
-            loader = new URLClassLoader(new URL[] {jar.toURL ()});
-          }
-        catch (MalformedURLException f)
-          {
-            System.err.println ("java-gcj-compat: tools.jar: malformed URL for "
-                                + Config.JAR_INST_DIR + "/eclipse-ecj.jar");
-            f.printStackTrace();
-          }
-
-        try
-          {
-            klass = loader.loadClass (classname);
-          }
-        catch (ClassNotFoundException g)
-          {
-            System.err.println ("java-gcj-compat: tools.jar: failed to load "
-                                + classname);
-            g.printStackTrace();
-          }
-      }
-
-    try
-      {
-        ecjConstructor = klass.getConstructor (new Class[] {
-                                                 PrintWriter.class,
-                                                 PrintWriter.class,
-                                                 Boolean.TYPE});
-      }
-    catch (NoSuchMethodException h)
-      {
-        System.err.println ("java-gcj-compat: tools.jar: failed to find"
-                            + " ecj constructor");
-        h.printStackTrace();
-      }
-
-    try
-      {
-        ecjMethod = klass.getMethod ("compile", new Class[] {String[].class});
-      }
-    catch (NoSuchMethodException i)
-      {
-        System.err.println ("java-gcj-compat: tools.jar: failed to find"
-                            + " ecj compile method");
-        i.printStackTrace();
-      }
-  }
-
   public static int compile (String[] args, PrintWriter p) throws Exception
   {
     /*
@@ -123,14 +50,13 @@ public class Main
      *
      * https://bugs.eclipse.org/bugs/show_bug.cgi?id=88364
      */
-    Object ecjInstance = ecjConstructor.newInstance (new Object[]
-        {
-          p,
-          new PrintWriter (System.err),
-          Boolean.FALSE
-        });
-    return ((Boolean) ecjMethod.invoke (ecjInstance, new Object[]
-        { args })).booleanValue() ? 0 : -1;
+    
+    org.eclipse.jdt.internal.compiler.batch.Main main
+      = new org.eclipse.jdt.internal.compiler.batch.Main(
+	p,
+	new PrintWriter (System.err),
+	false);
+    return main.compile(args) ? 0 : -1;
   }
 
   public static int compile (String[] args) throws Exception

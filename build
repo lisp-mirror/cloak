@@ -44,9 +44,10 @@ tail_last() {
 }
 
 clbuild_lisp() {
-    $lisp \
-	--eval "(require :asdf)" \
-	--eval "(setq asdf:*central-registry* '(#p\"${system_namestring}\"))" \
+    SBCL_HOME=$source_dir/sbcl/contrib \
+	"$source_dir/sbcl/src/runtime/sbcl" \
+	--core "$cwd/core/cloak.core" \
+        --eval "(load \"$cwd/cloak/lisp/jnifns.fasl\")"
 	"$@"
 }
 
@@ -266,7 +267,7 @@ build_sbcl() {
 build_classpath() {
     f=$cwd/.build-classpath.timestamp
     if test -f $f; then
-	echo "$f found, skipping build-sbcl"
+	echo "$f found, skipping build-classpath"
 	echo "(delete this file to force rebuilding)"
     else
 	cd ${source_dir}/classpath
@@ -280,15 +281,18 @@ build_classpath() {
 build_cloak() {
     f=$cwd/.build-cloak.timestamp
     if test -f $f; then
-	echo "$f found, skipping build-sbcl"
+	echo "$f found, skipping build-cloak"
 	echo "(delete this file to force rebuilding)"
     else
 	mkdir -p core
 	rm -f core/cloak.core
 	cd $cwd/cloak
 	rm -rf classpath classpath.zip
-	ln -s $cwd/source/classpath .
+	ln -s $cwd/source/classpath/lib classpath
 	make
+	cd $cwd/java-cloak-compat
+	make
+	ln -sf $cwd/source/ecj.jar $cwd/target/share/classpath/
 	cd $cwd
 	SBCL_HOME=$source_dir/sbcl/contrib \
 	    "$source_dir/sbcl/src/runtime/sbcl" \
@@ -307,7 +311,7 @@ build_cloak() {
 build_cache() {
     f=$cwd/.build-cache.timestamp
     if test -f $f; then
-	echo "$f found, skipping build-sbcl"
+	echo "$f found, skipping build-cache"
 	echo "(delete this file to force rebuilding)"
     else
 	mkdir -p $cwd/cloak/cache
@@ -315,6 +319,8 @@ build_cache() {
 	    $source_dir/classpath/lib/glibj.zip \
 	    $source_dir/cp-tools.jar \
 	    $source_dir/ecj.jar
+	find $cwd/cloak/java -name \*.class -print0 \
+	    | xargs -0 ./bin/precompile
 	touch $f
     fi
 }

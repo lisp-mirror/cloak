@@ -1150,7 +1150,9 @@
 		(#.+constant_integer+ :int)
 		(#.+constant_float+ :float)
 		(#.+constant_string+ :string)
-		(t (class-format-error "invalid constant reference")))))
+		(#.+constant_class+ :object)
+		(t
+		 (class-format-error "invalid constant reference")))))
 	(list :out (list type))))
   (:out (%push))
   (:body
@@ -1165,7 +1167,10 @@
 	   (int-to-float
 	    ,(float-to-int constant))))
        (#.+constant_integer+
-	 constant)))))
+	 constant)
+       (#.+constant_class+
+	 (pushnew constant (cm.class-ids *method*))
+	 `(svref %pool% ,constant))))))
 
 (defop (ldc2_w (index :ushort))
     (lambda (index)

@@ -104,7 +104,7 @@
 	    (cm.descriptor object))))
 
 (defparameter *smallest-supported-version* '(45 . 3))
-(defparameter *largest-supported-version* '(48 . 0))
+(defparameter *largest-supported-version* '(50 . 0))
 
 (defun version<= (a b)
   (if (= (car a) (car b))

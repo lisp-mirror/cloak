@@ -46,5 +46,5 @@ public interface Config
   /**
    * The directory where required jars are installed.
    */
-  String JAR_INST_DIR = "/usr/share/classpath";
+  String JAR_INST_DIR = "target/share/classpath";
 }

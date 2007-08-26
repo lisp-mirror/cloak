@@ -25,13 +25,18 @@
     (do-stack-methods (method class)
       (push (class-object class) results))
     (make-cloak-array "[Ljava/lang/Class;"
-      (make-array (length results) :initial-contents (reverse results)))))
+      (make-array (length results)
+		  ;; skip VMStackWalker.getClassContext
+		  :initial-contents (cdr (reverse results))))))
 
 (defstatic |gnu/classpath/VMStackWalker.getCallingClass()| ()
   (let ((result +null+)
 	(i 0))
     (do-stack-methods (method class)
-      (when (eql i 1)
+      ;; 0 -- VMStackWalker.getCallingClassLoader
+      ;; 1 -- the calling class, aka getClassContext[0]
+      ;; 2 -- the one we're looking for, aka getClassContext[1]
+      (when (eql i 2)
 	(setf result (class-object class))
 	(return))
       (incf i))
@@ -41,7 +46,10 @@
   (let ((result +null+)
 	(i 0))
     (do-stack-methods (method class)
-      (when (eql i 1)
+      ;; 0 -- VMStackWalker.getCallingClassLoader
+      ;; 1 -- the calling class, aka getClassContext[0]
+      ;; 2 -- the one we're looking for, aka getClassContext[1]
+      (when (eql i 2)
 	(whereas ((cl (cls.class-loader class)))
 	  (setf result (cl.object cl)))
 	(return))

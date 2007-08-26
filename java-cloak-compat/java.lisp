@@ -147,31 +147,39 @@ Copyright (C) 2003-2007 David Lichteblau~%")
 				:classpath (parse-classpath classpath)
 				:arguments args)))))))))
 
+(defun merge-classpath (cp)
+  (let ((base (sb-ext:posix-getenv "CLOAKBUILD_HOME")))
+    (mapcar (lambda (n) (concatenate 'string base "/" n)) cp)))
+
 (defun javac (args)
   (cloak::start-vm "com.sun.tools.javac.Main"
 		   :show-statistics-p nil
-		   :classpath (list "/home/david/cloakbuild/java-cloak-compat/"
-				    #+nil (directory "/home/david/cloakdist/eclipse/plugins/*.jar")
-				    "/home/david/ecj.jar")
+		   :classpath (merge-classpath
+			       (list "java-cloak-compat/"
+				     "source/cp-tools.jar"
+				     "source/ecj.jar"))
 		   :arguments args)
   (fresh-line))
 
 (defun javap (args)
   (cloak::start-vm "gnu.classpath.tools.JavapMain"
 		   :show-statistics-p nil
-		   :classpath (list "/home/david/cp-tools.jar")
+		   :classpath (merge-classpath
+			       (list "source/cp-tools.jar"))
 		   :arguments args))
 
 (defun javah (args)
   (cloak::start-vm "gnu.classpath.tools.JavahMain"
 		   :show-statistics-p nil
-		   :classpath (list "/home/david/cp-tools.jar")
+		   :classpath (merge-classpath
+			       (list "source/cp-tools.jar"))
 		   :arguments args))
 
 (defun serialver (args)
   (cloak::start-vm "gnu.classpath.tools.SerialVer"
 		   :show-statistics-p nil
-		   :classpath (list "/home/david/cp-tools.jar")
+		   :classpath (merge-classpath
+			       (list "source/cp-tools.jar"))
 		   :arguments args))
 
 (defun class-file-p (p)

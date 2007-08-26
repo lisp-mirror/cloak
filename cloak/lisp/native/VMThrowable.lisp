@@ -56,7 +56,8 @@
 (declaim (inline cloak::x86-call-context))
 (defun cloak::x86-call-context (fp &key (depth 0))
   (declare (type system-area-pointer fp)
-	   (fixnum depth))
+	   (fixnum depth)
+	   (notinline cloak::x86-call-context))
   (cond
    ((not (control-stack-pointer-valid-p fp)) nil)
    (t
@@ -71,9 +72,9 @@
 		  (sap> c-ocfp fp) (control-stack-pointer-valid-p c-ocfp)
 		  (ra-pointer-valid-p c-ra))
 	     ;; Look forward another step to check their validity.
-	     (let ((lisp-path-fp (x86-call-context lisp-ocfp
+	     (let ((lisp-path-fp (cloak::x86-call-context lisp-ocfp
 						   :depth (1+ depth)))
-		   (c-path-fp (x86-call-context c-ocfp :depth (1+ depth))))
+		   (c-path-fp (cloak::x86-call-context c-ocfp :depth (1+ depth))))
 	       (cond ((and lisp-path-fp c-path-fp)
                        ;; Both still seem valid - choose the lisp frame.
 		      #+freebsd
