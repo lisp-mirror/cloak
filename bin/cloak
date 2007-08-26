@@ -3,10 +3,10 @@ NAME=$(basename $0)
 CWDREL=$(dirname $0)
 CWD=$(cd "$CWDREL" && cd .. && pwd)
 
-export LD_LIBRARY_PATH="/usr/lib/classpath:$CWD/cloak/c"
-export SBCL_HOME="$CWD/sbcl/contrib"
+export LD_LIBRARY_PATH="$CWD/target/lib/classpath:$CWD/cloak/c"
+export SBCL_HOME="$CWD/source/sbcl/contrib"
 
-exec "$CWD/sbcl/src/runtime/sbcl" \
+exec "$CWD/source/sbcl/src/runtime/sbcl" \
 	--core "$CWD/core/cloak.core" \
 	--noinform \
 	--noprint \

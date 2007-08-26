@@ -10,7 +10,7 @@ target_dir="$(pwd)/target"
 self="$0"
 while test -h "$self"; do self=`readlink "$self"`; done
 
-export LD_LIBRARY_PATH="/usr/lib/classpath:cloak/c"
+export LD_LIBRARY_PATH="$target_dir/lib/classpath:$cwd/cloak/c"
 system_namestring="$system_dir/"
 source_namestring="$source_dir/"
 target_namestring="$target_dir/"
@@ -149,8 +149,6 @@ count_systems() {
 }
 
 update() {
-	rm -f core/cloak.core
-
         TMPDIR=`mktemp -d /tmp/clbuild.XXXXXXXXXX`
 
         cleanup() {
@@ -166,7 +164,18 @@ update() {
 	get_tarball split-sequence \
 	    http://ftp.linux.org.uk/pub/lisp/cclan/split-sequence.tar.gz
 
-	cvs -z3 -d :pserver:anonymous@cvs.savannah.gnu.org:/sources/classpath co -r classpath-0_91-release classpath
+	# CVS would nicer, but 0.91's autogen.sh needs ancient versions of
+	# autoconf, so let's grab a tarball instead.
+	# cvs -z3 -d :pserver:anonymous@cvs.savannah.gnu.org:/sources/classpath co -r classpath-0_91-release classpath
+	rm -f classpath
+	get_tarball classpath ftp://ftp.gnu.org/pub/gnu/classpath/classpath-0.91.tar.gz
+	ln -s classpath-0.91 classpath
+
+	# ditto
+	# cvs -z3 -d :pserver:anonymous@cvs.savannah.gnu.org:/sources/classpath co cp-tools
+	wget -O cp-tools.jar http://www.lichteblau.com/tmp/cp-tools.jar
+
+	wget -O ecj.jar http://sunsite.informatik.rwth-aachen.de:3080/eclipse/downloads/drops/R-3.3-200706251500/ecj.jar
 
 	cvs -z3 -d :pserver:anonymous:@sbcl.cvs.sourceforge.net:/cvsroot/sbcl co sbcl
 	echo '(lambda (list) (pushnew :sb-thread list) list)' > sbcl/customize-target-features.lisp
@@ -177,13 +186,18 @@ update() {
 
 	echo Patching SBCL: sb-regpair
 	cd $source_dir/sbcl
-	patch -p0 <$cwd/sb-regpair/sb-regpair.diff
+	if grep signed-byte-64 src/compiler/generic/primtype.lisp >/dev/null; then
+	    echo sb-regpair patch already present, skipping
+	else
+	    patch -p0 <$cwd/sb-regpair/sb-regpair.diff
+	fi
 
 	ln -sf $cwd/sb-regpair/sb-regpair.asd $system_dir
 	ln -sf $cwd/cloak/cloak.asd $system_dir
 	ln -sf $cwd/java-cloak-compat/java-cloak-compat.asd $system_dir
 
 	echo "update complete"
+	touch $cwd/.initial-update.timestamp
 }
 
 help() {
@@ -202,6 +216,9 @@ Usage:
 
   slime          run the Superior Lisp Interaction Mode in a fresh Emacs
   lisp           run SBCL in the terminal
+
+To build normally, run "$0 world".
+
 EOF
 }
 
@@ -230,44 +247,52 @@ check() {
     check_program darcs
     check_program wget
     check_program tar
-    check_program git
     check_misdesigned_program mktemp
     echo "All helper applications found."
 }
 
 build_sbcl() {
-    f=.build-sbcl.timestamp
+    f=$cwd/.build-sbcl.timestamp
     if test -f $f; then
 	echo "$f found, skipping build-sbcl"
 	echo "(delete this file to force rebuilding)"
     else
 	cd ${source_dir}/sbcl
-	./make.sh
+	SBCL_ARCH=x86 ./make.sh
+	touch $f
     fi
 }
 
 build_classpath() {
-    f=.build-classpath.timestamp
+    f=$cwd/.build-classpath.timestamp
     if test -f $f; then
 	echo "$f found, skipping build-sbcl"
 	echo "(delete this file to force rebuilding)"
     else
 	cd ${source_dir}/classpath
-	./configure
+	./configure --prefix $target_dir/
 	make
+	make install
+	touch $f
     fi
 }
 
 build_cloak() {
-    f=.build-cloak.timestamp
+    f=$cwd/.build-cloak.timestamp
     if test -f $f; then
 	echo "$f found, skipping build-sbcl"
 	echo "(delete this file to force rebuilding)"
     else
 	mkdir -p core
 	rm -f core/cloak.core
-	exec "sbcl/src/runtime/sbcl" \
-	    --core "sbcl/output/sbcl.core" \
+	cd $cwd/cloak
+	rm -rf classpath classpath.zip
+	ln -s $cwd/source/classpath .
+	make
+	cd $cwd
+	SBCL_HOME=$source_dir/sbcl/contrib \
+	    "$source_dir/sbcl/src/runtime/sbcl" \
+	    --core "$source_dir/sbcl/output/sbcl.core" \
 	    --noinform \
 	    --noprint \
 	    --userinit /dev/null \
@@ -275,19 +300,22 @@ build_cloak() {
 	    --eval '(push "systems/" asdf:*central-registry*)' \
 	    --eval "(asdf:operate 'asdf:load-op :java-cloak-compat)" \
 	    --eval '(sb-ext:save-lisp-and-die "core/cloak.core")'
+	touch $f
     fi
 }
 
 build_cache() {
-    f=.build-cache.timestamp
+    f=$cwd/.build-cache.timestamp
     if test -f $f; then
 	echo "$f found, skipping build-sbcl"
 	echo "(delete this file to force rebuilding)"
     else
+	mkdir -p $cwd/cloak/cache
 	./bin/precompile \
-	    cloak/classpath.zip \
-	    /home/david/cp-tools.jar \
-	    /home/david/ecj.jar
+	    $source_dir/classpath/lib/glibj.zip \
+	    $source_dir/cp-tools.jar \
+	    $source_dir/ecj.jar
+	touch $f
     fi
 }
 
@@ -296,6 +324,13 @@ case $1 in
 	check
 	;;
     world)
+	"$0" check
+	f=$cwd/.initial-update.timestamp
+	if test -f $f; then
+	    echo "$f found, skipping 'update' before 'world'"
+	else
+	    "$0" update
+	fi
 	"$0" build-classpath
 	"$0" build-sbcl
 	"$0" build-cloak
@@ -340,6 +375,10 @@ case $1 in
 	;;
     help|--help|-h|-H)
         help
+	;;
+    "")
+	echo "To build normally, run $0 world, or see $0 help for more options"
+	exit 0
 	;;
     *)
         help

@@ -120,8 +120,8 @@ diff -u -u -r1.69 parms.lisp
  
 -  (def!constant dynamic-space-start       #x09000000)
 -  (def!constant dynamic-space-end         #x29000000)
-+  (def!constant dynamic-space-start       #x5a000000)
-+  (def!constant dynamic-space-end         #xb0000000)
++  (def!constant dynamic-space-start       #x09000000)
++  (def!constant dynamic-space-end         #x39000000)
  
    (def!constant linkage-table-space-start #x01200000)
    (def!constant linkage-table-space-end   #x012ff000))

@@ -1,14 +1,15 @@
 CC=cc
 JAVAC=jikes
 CFLAGS=-g
-CLASSPATH=/usr/include/classpath
+#CLASSPATH=/usr/include/classpath
+CLASSPATH=../target/include
 
 all: c/libcloak.so java
 
 
 .PHONY: java
 java:
-	find java -name \*.java | xargs jikes -cp java:classpath:classpath.zip
+	find java -name \*.java | env JIKESPATH=java:../source/classpath/lib/glibj.zip xargs jikes
 
 c/jni_md.h: $(CLASSPATH)/jni_md.h
 	cp $< $@

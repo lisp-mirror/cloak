@@ -1,0 +1,227 @@
+* [done for now -- SBCL 1.0.8.46, in August 2007]
+  update to current SBCL
+
+* (easy) update to current Classpath
+
+  updated to 0.91 in August 2007, but that's still ancient
+
+
+* (easy) generics
+  
+  Current classpath supports generics, which requires some minor VM
+  support.
+
+
+* (tedious but not hard) Look for race conditions and other bugs
+
+  Eclipse usually starts (but not always, so there are probably
+  threading-related bugs).  Using it crashes soon.
+
+  (Of course, Eclipse is a test case chosen for coolness, not
+  practicality.  Pick any other application you like instead.)
+
+  Fix these problems as you find them.
+
+
+* (lots of work) Switch from GNU Classpath to OpenJDK/IcedTea
+
+  Ultimately having OpenJDK support is the right thing to do.
+
+
+* Validation (Java 2-style)
+
+  Validation sounds hard if you believe the JVM spec (so ignore it
+  completely).  Read Alessandro Coglio instead:
+
+  http://www.kestrel.edu/home/people/coglio/ftjp02.ps
+  http://www.kestrel.edu/home/people/coglio/ccpe03.pdf
+
+
+* Validation (Java 6-style)
+
+  Trivial.
+
+
+* Java <-> Lisp Interface
+
+  Invent a nice (!) and fast interface for calls from Lisp to Java and back.
+  Bonus points if you implement the same interface on ABCL.
+
+
+* JNI/libsbcl
+
+  Make SBCL loadable as a shared library to implement the missing JNI
+  functions that a VM in a previously existing process.
+
+  Also implement the AttachThreadSomething functions that allow JNI code to
+  turn non-Java pthreads into Java threads.
+
+  
+* Port to other platforms
+
+  Linux/x86-only right now.  Linux/amd64 should be easy.
+
+  (Other threading-enabled Unix on x86 might just work.)
+
+
+* (relatively easy) Get rid of spinlocking on monitor contention.
+
+  Currently, cloak uses Bacon's algorithm, which busy waits in some
+  cases: http://citeseer.ist.psu.edu/283867.html
+
+  Implement at least Onodera's algorithm instead:
+  http://portal.acm.org/citation.cfm?id=320405&coll=portal&dl=ACM 
+
+
+* Fix stack trace disaster
+
+  There is an extremely terrible mechanism to translate PCs from
+  backtraces to their methods, which involves a huge table for all
+  methods and a GC hook.
+
+  Instead, implement Juho Snellman's suggestion of an SBCL extension
+  that would provide a memory array for long-term pinning of objects,
+  allowing us to pin all methods referenced from stack traces until user
+  code asks for them to be resolved.  (Keep a table of weak references
+  to exceptions.)
+
+
+* (hard to get right) Implement OutOfMemoryError
+
+  If you actually want the Lisp and the VM to recover from rigorous
+  testing of out-of-memory situations, this is tricky.
+
+
+* (easy) weak references
+
+  Weak references are not implemnted yet (IIRC).
+
+  The trick could be to hack the compiler so that it recognizes accesses
+  to the slot of a weak reference and hides a Lisp weak reference
+  between the slot and its contents.
+
+
+* finalization
+
+  - Find my patch for Java-style finalization in SBCL and use it to
+    implement finalize().
+  - Read Bruno Haible's talk to find out what's wrong with my patch.
+  - Make sure not to finalize objects with a trivial finalize() method.
+  - Implement PhantomReference and SoftReference.
+
+
+* Interpreter
+
+  A bytecode interpreter would be nice to avoid having to run all
+  classes through the SBCL compiler.
+
+  While a simple and slow interpreter could be written in an afternoon,
+  we would want an interpreter that is much more optimized.
+
+  Have a look how a simple interpreter like JamVM does it, then try to
+  figure out how to do the same in Lisp.  (It is probably harder in Lisp
+  than in C because you will have endless fun with type declarations and
+  compiler notes.)
+
+  (Alternatively, make the interpreter call specific VOPs instead of
+  fighting with Lisp types, which might be easy if the compiler has
+  already been rewritten to do so; see below.)
+
+
+* Rewrite the "compiler"
+
+  The translation from bytecode to Lisp source code is extremely naive.
+
+  - (easy) Introduce a BASIC-BLOCK class.
+
+  - Compile into IR1 or IR2 instead of going through source code.
+      o Control exactly which VOPs are used.
+      o Make compilation fast somehow.
+    (This amounts to a complete rewrite, but as everyone knows, it is
+    way easier to rewrite code than write it from scratch, so it might
+    be easy enough if you know SBCL.)
+
+  - (easy) Review binary compatibility (I): Classes are compiled into Lisp
+    functions and dumped to disk.  Right now, we try to generate code
+    that is independent of other classes, so that each class can be
+    loaded back from disk even if other classes have changed [in a
+    binary-compatible way].
+
+  - (easy) Review binary compatibility (II): If classes have changed in a way
+    that breaks binary compatibility, we are required to throw certain
+    exceptions.  Make sure that we actually do that.
+
+  - (not too hard and probably fun)  Break binary compatibility for
+    optimization.  The generated code can hardly do any optimizations at
+    all without taking into account the class hierarchy.
+    Add a mode that optimizes all classes (or perhaps certain jar files)
+    together:
+
+      o	All method invocations currently go through a double-dispatch
+        scheme.  In optimized mode, the vtable index could be computed
+        at compilation time.
+
+      o Ditto for slots.
+
+      o Inlining of methods!
+        (Careful, Java needs accurate stack traces, so the effects of
+        inlining must be recorded exactly so that instructions can be
+        mapped back to the method they came from at run time.)
+ 
+      o Eliminate unneeded class casts based on type informations
+        resulting from inlining.
+
+      o Eliminate unneeded class initialization checks (for example,
+        superclasses will already have been initialized when the current
+        class runs.)
+
+      o The big catch: Figure out how to make this scheme safe.
+        Heapfiles might include cryptographic check sums of all classes
+	they depend on.
+
+    But (hard): Make sure to either keep incremental class loading
+    working or make our code much more compact so that it's actually
+    feasible to map entire pre-compiled applications into memory in one
+    step.
+
+  - Either: Propagate information about whether variables can be `null' and
+    eliminate redundant null checks accordingly.  (Ditto for class
+    initialization.)
+
+  - Alternatively, restore the logic that lets null pointer accesses
+    just happen, and signal the NullPointerException in the segfault
+    handler.  There is a *feature* that might even still work if you set
+    it.  It involves lying to the compiler though and makes things
+    harder to debug.  Worse, it didn't make anything faster back then.
+
+  - Hack SBCL to allow untagged arguments across full functions calls.
+    We do lots of untagged operations, resulting in significant overhead
+    when the numbers involved are passed to other functions.  (And
+    Java's use of 32 bit and 64 bit arithmetic really makes it
+    completely unattractive to do the calculations with tagged numbers).
+    This change could be in the form of a "Java calling convention" that
+    ordinary Lisp function calls don't use.
+
+  - Rewrite parser.lisp, which is currently rather slow and conses too much.
+
+
+* (hard) Generated much smaller native code.
+
+
+* (easy) Store the precompiled .heap files in a zip file to save disk space.
+
+  Requires loading them into dynamic space using memcpy() instead of mmap().
+  Should save lots of space.
+
+
+* (easy) access checks
+
+  The linker needs to perform access check.  JNI also needs to be able
+  to do them.  Neither of those checks is currently implemented.
+
+
+* (???) too eager resolving
+
+  References from method to other classes and methods are resolved too
+  eagerly.  Figure out how to do this properly without comprising on
+  speed and code size too much.
