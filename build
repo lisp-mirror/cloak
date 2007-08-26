@@ -187,7 +187,7 @@ update() {
 
 	echo Patching SBCL: sb-regpair
 	cd $source_dir/sbcl
-	if grep signed-byte-64 src/compiler/generic/primtype.lisp >/dev/null; then
+	if grep signed64-num src/compiler/generic/primtype.lisp >/dev/null; then
 	    echo sb-regpair patch already present, skipping
 	else
 	    patch -p0 <$cwd/sb-regpair/sb-regpair.diff
